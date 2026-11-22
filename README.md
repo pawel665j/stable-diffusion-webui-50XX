@@ -38,15 +38,7 @@ News are moved to this link: [Click here to see the News section](https://github
 
 **Just use this one-click installation package (with git and python included).**
 
-[>>> Click Here to Download One-Click Package (CUDA 12.1 + Pytorch 2.3.1) <<<](https://github.com/lllyasviel/stable-diffusion-webui-forge/releases/download/latest/webui_forge_cu121_torch231.7z)
-
-Some other CUDA/Torch Versions:
-
-[Forge with CUDA 12.1 + Pytorch 2.3.1](https://github.com/lllyasviel/stable-diffusion-webui-forge/releases/download/latest/webui_forge_cu121_torch231.7z) <- **Recommended**
-
-[Forge with CUDA 12.4 + Pytorch 2.4](https://github.com/lllyasviel/stable-diffusion-webui-forge/releases/download/latest/webui_forge_cu124_torch24.7z) <- **Fastest**, but MSVC may be broken, xformers may not work
-
-[Forge with CUDA 12.1 + Pytorch 2.1](https://github.com/lllyasviel/stable-diffusion-webui-forge/releases/download/latest/webui_forge_cu121_torch21.7z) <- the previously used old environments
+> **⚡ RTX 50xx Series (Blackwell) — Recommended:** CUDA 13.2 + PyTorch 2.15 + SDPA attention
 
 After you download, you uncompress, use `update.bat` to update, and use `run.bat` to run.
 
@@ -54,15 +46,29 @@ Note that running `update.bat` is important, otherwise you may be using a previo
 
 ![image](https://github.com/lllyasviel/stable-diffusion-webui-forge/assets/19834515/c49bd60d-82bd-4086-9859-88d472582b94)
 
+### Requirements
+
+- **NVIDIA GPU:** RTX 30xx / 40xx / 50xx series (sm_86 / sm_89 / sm_100 / sm_120)
+- **CUDA Toolkit:** 13.2 (for RTX 50xx Blackwell)
+- **Python:** 3.10–3.13
+- **PyTorch:** 2.15+ (with CUDA 13.2 support)
+
 ### Advanced Install
 
 If you are proficient in Git and you want to install Forge as another branch of SD-WebUI, please see [here](https://github.com/continue-revolution/sd-webui-animatediff/blob/forge/master/docs/how-to-use.md#you-have-a1111-and-you-know-git). In this way, you can reuse all SD checkpoints and all extensions you installed previously in your OG SD-WebUI, but you should know what you are doing.
 
 If you know what you are doing, you can also install Forge using same method as SD-WebUI. (Install Git, Python, Git Clone the forge repo `https://github.com/lllyasviel/stable-diffusion-webui-forge.git` and then run webui-user.bat).
 
-### Previous Versions
+### Changelog
 
-You can download previous versions [here](https://github.com/lllyasviel/stable-diffusion-webui-forge/discussions/849).
+This fork includes significant updates over the original WebUI Forge:
+
+- **CUDA 13.2** — full support for RTX 50xx (Blackwell, sm_120)
+- **PyTorch 2.15** — latest with improved SDPA and memory management
+- **SDPA attention** — replaced xformers for better compatibility with new architectures
+- **Python 3.10–3.13** — broad version support
+- **Auto dtype detection** — FP8/NF4 models loaded automatically by filename
+- **Memory optimizations** — model stays in VRAM between generations
 
 # Forge Status
 
