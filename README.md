@@ -290,3 +290,4 @@ This is a modified version optimized for NVIDIA RTX 50xx series (Blackwell archi
 - DDR4 2400 RAM — slow CPU↔GPU memory transfers
 - FLUX limited by GDDR6 bandwidth (~288 GB/s, same as 4060)
 - FP8 inference works but BF16 computation still used
+- **WARNING:** `--always-gpu` flag is **dangerous for 16GB GPUs** — it prevents model unloading and causes OOM. Use only on 24GB+ VRAM cards.
