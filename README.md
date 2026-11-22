@@ -44,8 +44,6 @@ After you download, you uncompress, use `update.bat` to update, and use `run.bat
 
 Note that running `update.bat` is important, otherwise you may be using a previous version with potential bugs unfixed.
 
-![image](https://github.com/lllyasviel/stable-diffusion-webui-forge/assets/19834515/c49bd60d-82bd-4086-9859-88d472582b94)
-
 ### Requirements
 
 - **NVIDIA GPU:** RTX 30xx / 40xx / 50xx series (sm_86 / sm_89 / sm_100 / sm_120)
