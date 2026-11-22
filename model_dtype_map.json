@@ -1,0 +1,11 @@
+{
+    "flux": "fp8-e4m3fn",
+    "flux-dev": "fp8-e4m3fn",
+    "flux-schnell": "fp8-e4m3fn",
+    "sdxl": "fp8-e4m3fn",
+    "sd3": "fp8-e4m3fn",
+    "chroma": "fp8-e4m3fn",
+    "sd15": "fp16",
+    "my_sdxl_fp32": "fp32",
+    "my_flux_nf4": "nf4"
+}
