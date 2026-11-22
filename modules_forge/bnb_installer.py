@@ -1,13 +1,13 @@
-import pkg_resources
+import importlib.metadata
 
 from modules.launch_utils import run_pip
 
-target_bitsandbytes_version = '0.45.3'
+target_bitsandbytes_version = '0.50.2'
 
 
 def try_install_bnb():
     try:
-        bitsandbytes_version = pkg_resources.get_distribution('bitsandbytes').version
+        bitsandbytes_version = importlib.metadata.version('bitsandbytes')
     except Exception:
         bitsandbytes_version = None
 
