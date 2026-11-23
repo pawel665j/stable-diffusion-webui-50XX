@@ -1,0 +1,25 @@
+{
+  "include": [
+    "backend",
+    "modules",
+    "modules_forge"
+  ],
+  "exclude": [
+    "**/__pycache__",
+    "**/.mypy_cache",
+    "extensions-builtin/forge_legacy_preprocessors/annotator/**",
+    "extensions-builtin/forge_preprocessor_normalbae/**",
+    "packages_3rdparty/**",
+    "repositories/**",
+    "ldm_patched/**",
+    "extensions/**",
+    "extensions-disabled/**",
+    "k_diffusion/**"
+  ],
+  "typeCheckingMode": "basic",
+  "reportMissingImports": "warning",
+  "pythonVersion": "3.12",
+  "pythonPlatform": "Windows",
+  "venvPath": ".",
+  "venv": ".venv"
+}

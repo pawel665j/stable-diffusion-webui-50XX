@@ -37,6 +37,8 @@ forge_unet_storage_dtype_options = {
     'bnb-fp4 (fp16 LoRA)': ('fp4', True),
     'float8-e5m2': (torch.float8_e5m2, False),
     'float8-e5m2 (fp16 LoRA)': (torch.float8_e5m2, True),
+    'gguf': ('gguf', False),
+    'gguf (fp16 LoRA)': ('gguf', True),
 }
 
 module_list = {}

@@ -1,4 +1,5 @@
 import dataclasses
+import math
 import torch
 import k_diffusion
 import numpy as np
@@ -208,6 +209,116 @@ def ays_32_sigmas(n, sigma_min, sigma_max, device='cpu'):
     return torch.FloatTensor(sigmas).to(device)
 
 
+
+
+# ============================================================
+# FLUX / Flow-Matching Schedulers
+# ============================================================
+# FLUX uses Flow-Matching where sigmas represent pseudo-timesteps
+# from 1 (noisy) to 0 (clean). These schedulers are designed for
+# that formulation.
+# ============================================================
+
+
+def flow_linear(n, sigma_min, sigma_max, device='cpu'):
+    """Linear schedule for Flow-Matching.
+    
+    Uniform spacing in pseudo-time t = sigma.
+    This is the default schedule used by FLUX.
+    """
+    sigmas = torch.linspace(1.0, 0.0, n + 1, device=device)
+    return sigmas
+
+
+def flow_cosine(n, sigma_min, sigma_max, device='cpu'):
+    """Cosine schedule for Flow-Matching.
+    
+    Based on the cosine schedule from \"Simple Cosine Schedule\" [arXiv:2407.00057].
+    Often produces better quality than linear for flow-matching.
+    """
+    s = 0.008
+    t = torch.linspace(0, 1, n + 1, device=device)
+    sigmas = torch.cos((t + s) / (1 + s) * math.pi / 2) / (1 + s)
+    sigmas = sigmas / sigmas[0]
+    sigmas = torch.clamp(sigmas, 0, 1)
+    return sigmas
+
+
+def flow_sqrt(n, sigma_min, sigma_max, device='cpu'):
+    """Square root schedule for Flow-Matching.
+    
+    Spacing proportional to sqrt(t), concentrates steps near the beginning.
+    """
+    t = torch.linspace(0, 1, n + 1, device=device)
+    sigmas = 1 - torch.sqrt(t)
+    sigmas = torch.clamp(sigmas, 0, 1)
+    return sigmas
+
+
+def flow_linear_inv(n, sigma_min, sigma_max, device='cpu'):
+    """Inverse linear schedule for Flow-Matching.
+    
+    Concentrates steps near the end (clean image).
+    Useful when you want more refinement in later steps.
+    """
+    t = torch.linspace(0, 1, n + 1, device=device)
+    sigmas = 1 - t ** 2
+    sigmas = torch.clamp(sigmas, 0, 1)
+    return sigmas
+
+
+def flow_polyexponential(n, sigma_min, sigma_max, device='cpu', rho=3.0):
+    """Polynomial in log sigma schedule for Flow-Matching.
+    
+    Similar to polyexponential but adapted for flow-matching range [0, 1].
+    """
+    ramp = torch.linspace(1, 0, n + 1, device=device)
+    sigmas = ramp ** rho
+    return sigmas
+
+
+def flow_loglinear(n, sigma_min, sigma_max, device='cpu'):
+    """Log-linear schedule for Flow-Matching.
+    
+    Linear interpolation in log space of a reference schedule.
+    Based on the AlignYourSteps approach adapted for flow-matching.
+    """
+    ref_sigmas = torch.tensor([
+        0.9999, 0.8621, 0.6554, 0.4734, 0.3157,
+        0.2053, 0.1232, 0.0668, 0.0288, 0.0099, 0.0000
+    ], device=device)
+    
+    if n != len(ref_sigmas):
+        xs = np.linspace(0, 1, len(ref_sigmas))
+        ys = np.log(ref_sigmas.cpu().numpy() + 1e-8)
+        new_xs = np.linspace(0, 1, n + 1)
+        new_ys = np.interp(new_xs, xs, ys)
+        sigmas = torch.tensor(np.exp(new_ys), device=device)
+    else:
+        sigmas = ref_sigmas.clone()
+    
+    return sigmas
+
+
+def flow_adaptive(n, sigma_min, sigma_max, inner_model, device):
+    """Adaptive schedule based on latent image dimensions.
+    
+    Adjusts the number of effective steps based on the latent resolution.
+    Higher resolutions get more steps for better quality.
+    """
+    unet = inner_model.inner_model.forge_objects.unet if hasattr(inner_model, 'inner_model') else None
+    if unet is not None and hasattr(unet, 'model') and hasattr(unet.model, 'predictor'):
+        predictor = unet.model.predictor
+        if hasattr(predictor, 'mu'):
+            mu = predictor.mu
+            effective_n = max(n, int(n * mu))
+            sigmas = torch.linspace(1.0, 0.0, effective_n + 1, device=device)
+            if effective_n > n:
+                indices = torch.linspace(0, effective_n, n + 1).long()
+                sigmas = sigmas[indices]
+            return sigmas
+    return flow_linear(n, sigma_min, sigma_max, device)
+
 schedulers = [
     Scheduler('automatic', 'Automatic', None),
     Scheduler('uniform', 'Uniform', uniform, need_inner_model=True),
@@ -225,6 +336,14 @@ schedulers = [
     Scheduler('align_your_steps_GITS', 'Align Your Steps GITS', get_align_your_steps_sigmas_GITS),
     Scheduler('align_your_steps_11', 'Align Your Steps 11', ays_11_sigmas),
     Scheduler('align_your_steps_32', 'Align Your Steps 32', ays_32_sigmas),
+    # FLUX / Flow-Matching Schedulers
+    Scheduler('flow_linear', 'Flow Linear', flow_linear),
+    Scheduler('flow_cosine', 'Flow Cosine', flow_cosine),
+    Scheduler('flow_sqrt', 'Flow Sqrt', flow_sqrt),
+    Scheduler('flow_linear_inv', 'Flow Linear Inv', flow_linear_inv),
+    Scheduler('flow_polyexponential', 'Flow Polyexp', flow_polyexponential),
+    Scheduler('flow_loglinear', 'Flow LogLinear', flow_loglinear),
+    Scheduler('flow_adaptive', 'Flow Adaptive', flow_adaptive, need_inner_model=True),
 ]
 
 schedulers_map = {**{x.name: x for x in schedulers}, **{x.label: x for x in schedulers}}

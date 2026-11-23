@@ -462,6 +462,13 @@ def split_state_dict(sd, additional_state_dicts: list = None):
     sd = preprocess_state_dict(sd)
     guess = huggingface_guess.guess(sd)
 
+    if guess is None:
+        from huggingface_guess.model_list import BASE
+        unet_key_prefix = huggingface_guess.detection.unet_prefix_from_state_dict(sd)
+        guess = BASE({})
+        guess.unet_key_prefix = [unet_key_prefix]
+        print(f'Warning: Model type not recognized, using BASE config. Prefix: {unet_key_prefix}')
+
     if isinstance(additional_state_dicts, list):
         for asd in additional_state_dicts:
             asd = load_torch_file(asd)
@@ -509,8 +516,14 @@ if not chroma_is_in_huggingface_guess:
 def forge_loader(sd, additional_state_dicts=None):
     try:
         state_dicts, estimated_config = split_state_dict(sd, additional_state_dicts=additional_state_dicts)
-    except:
-        raise ValueError('Failed to recognize model type!')
+    except Exception as e:
+        # Print first 20 keys for debugging
+        if isinstance(sd, dict):
+            sample_keys = list(sd.keys())[:20]
+            print(f"Debug - First 20 state_dict keys:")
+            for k in sample_keys:
+                print(f"  {k}")
+        raise ValueError(f'Failed to recognize model type! Error: {str(e)}') from e
     
     if not chroma_is_in_huggingface_guess \
         and estimated_config.huggingface_repo == "black-forest-labs/FLUX.1-schnell"  \

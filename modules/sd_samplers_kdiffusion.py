@@ -31,6 +31,16 @@ samplers_k_diffusion = [
     ('IPNDM', 'sample_ipndm', ['ipndm'], {}),
     ('IPNDM_V', 'sample_ipndm_v', ['ipndm_v'], {}),
     ('DEIS', 'sample_deis', ['deis'], {}),
+    # FLUX / Flow-Matching Native Samplers
+    ('Flow Euler', 'sample_flow_euler', ['k_flow_euler'], {}),
+    ('Flow Heun', 'sample_flow_heun', ['k_flow_heun'], {'scheduler': 'karras'}),
+    ('Flow RK2', 'sample_flow_rk2', ['k_flow_rk2'], {'scheduler': 'karras'}),
+    ('Flow Midpoint', 'sample_flow_midpoint', ['k_flow_midpoint'], {'scheduler': 'karras'}),
+    ('Flow DPM-Solver 2', 'sample_flow_dpm_solver_2', ['k_flow_dpm_solver_2'], {'scheduler': 'karras'}),
+    ('Flow DPM++ 2M', 'sample_flow_dpmpp_2m', ['k_flow_dpmpp_2m'], {'scheduler': 'karras'}),
+    ('Flow DPM++ 2S a', 'sample_flow_dpmpp_2s_ancestral', ['k_flow_dpmpp_2s_a'], {'scheduler': 'karras', "uses_ensd": True, "second_order": True}),
+    ('Flow LM2', 'sample_flow_lm2', ['k_flow_lm2'], {}),
+    ('Flow DIIS', 'sample_flow_deis', ['k_flow_deis'], {}),
 ]
 
 

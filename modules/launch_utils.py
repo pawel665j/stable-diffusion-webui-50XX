@@ -37,7 +37,14 @@ os.environ.setdefault('GRADIO_ANALYTICS_ENABLED', 'False')
 
 
 def get_cuda_version_from_gpu():
-    """Detect GPU architecture and return appropriate CUDA version string."""
+    """Detect GPU architecture and return appropriate CUDA version string.
+    
+    Supports:
+    - RTX 50xx Series (Blackwell, sm120) -> CUDA 12.8+
+    - CUDA 13.2 / 13.4 -> CUDA 12.8+ (forward compatible)
+    - RTX 40xx (Ada, sm89) -> CUDA 12.4+
+    - RTX 30xx (Ampere, sm86) -> CUDA 12.1+
+    """
     try:
         import subprocess
         result = subprocess.run(["nvidia-smi"], capture_output=True, text=True, timeout=5)
@@ -49,7 +56,10 @@ def get_cuda_version_from_gpu():
                 cuda_ver = match.group(1)
                 major = int(cuda_ver.split(".")[0])
                 minor = int(cuda_ver.split(".")[1])
-                if major >= 13 or (major == 12 and minor >= 4):
+                # CUDA 13.x -> cu128 (PyTorch 2.15+ supports CUDA 13.2/13.4)
+                if major >= 13:
+                    return "cu128"
+                elif major == 12 and minor >= 4:
                     return "cu128"
                 elif major == 12:
                     return "cu124"
@@ -61,12 +71,15 @@ def get_cuda_version_from_gpu():
     try:
         import torch
         if torch.cuda.is_available():
+            # sm120 = Blackwell (RTX 50xx) -> cu128
+            # sm89 = Ada (RTX 40xx) -> cu124+
+            # sm86 = Ampere (RTX 30xx) -> cu121+
             major = torch.cuda.get_device_capability(0)[0]
-            if major >= 9:
+            if major >= 9:  # sm120+ Blackwell
                 return "cu128"
-            elif major >= 8:
+            elif major >= 8:  # sm8x Ada/Ampere
                 return "cu124"
-            elif major >= 7:
+            else:
                 return "cu121"
     except Exception:
         pass
@@ -77,7 +90,7 @@ def get_cuda_version_from_gpu():
 def get_torch_versions_from_requirements(requirements_file):
     """Parse torch and torchvision versions from requirements_versions.txt."""
     torch_version = "2.15.0"
-    torchvision_version = "0.29.2"
+    torchvision_version = "0.20.0"
     
     if not os.path.isfile(requirements_file):
         requirements_file = os.path.join(script_path, "requirements_versions.txt")
@@ -103,19 +116,16 @@ def check_python_version():
     minor = sys.version_info.minor
     micro = sys.version_info.micro
 
-    if not (major == 3 and minor >= 10):
-        import modules.errors
-
-        modules.errors.print_error_explanation(f"""
-INCOMPATIBLE PYTHON VERSION
-
-This program requires Python 3.10 or newer, but you have {major}.{minor}.{micro}.
-Please upgrade to Python 3.10+.
-""")
-
-    if minor > 12:
-        print(f"\nWARNING: Python {major}.{minor}.{micro} may have compatibility issues with some packages.")
-        print("If you encounter installation errors, try Python 3.10 or 3.11.\n")
+    # Recommended: Python 3.11-3.13
+    if minor < 11:
+        print(f"\nWARNING: Python {major}.{minor}.{micro} is outdated.")
+        print("Recommended Python version: 3.11 - 3.13")
+        print("Please upgrade to Python 3.11+ for best compatibility.\n")
+    
+    if minor > 13:
+        print(f"\nWARNING: Python {major}.{minor}.{micro} is not yet tested.")
+        print("Recommended Python version: 3.11 - 3.13")
+        print("If you encounter issues, try Python 3.11 or 3.12.\n")
 
 
 @lru_cache()

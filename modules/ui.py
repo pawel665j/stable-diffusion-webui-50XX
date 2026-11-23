@@ -306,8 +306,8 @@ def create_ui():
                     elif category == "dimensions":
                         with FormRow():
                             with gr.Column(elem_id="txt2img_column_size", scale=4):
-                                width = gr.Slider(minimum=64, maximum=2048, step=8, label="Width", value=512, elem_id="txt2img_width")
-                                height = gr.Slider(minimum=64, maximum=2048, step=8, label="Height", value=512, elem_id="txt2img_height")
+                                width = gr.Slider(minimum=64, maximum=2048, step=64, label="Width", value=512, elem_id="txt2img_width")
+                                height = gr.Slider(minimum=64, maximum=2048, step=64, label="Height", value=512, elem_id="txt2img_height")
 
                             with gr.Column(elem_id="txt2img_dimensions_row", scale=1, elem_classes="dimensions-tools"):
                                 res_switch_btn = ToolButton(value=switch_values_symbol, elem_id="txt2img_res_switch_btn", tooltip="Switch width/height")
@@ -340,8 +340,8 @@ def create_ui():
 
                                 with FormRow(elem_id="txt2img_hires_fix_row2", variant="compact"):
                                     hr_scale = gr.Slider(minimum=1.0, maximum=4.0, step=0.05, label="Upscale by", value=2.0, elem_id="txt2img_hr_scale")
-                                    hr_resize_x = gr.Slider(minimum=0, maximum=2048, step=8, label="Resize width to", value=0, elem_id="txt2img_hr_resize_x")
-                                    hr_resize_y = gr.Slider(minimum=0, maximum=2048, step=8, label="Resize height to", value=0, elem_id="txt2img_hr_resize_y")
+                                    hr_resize_x = gr.Slider(minimum=0, maximum=2048, step=64, label="Resize width to", value=0, elem_id="txt2img_hr_resize_x")
+                                    hr_resize_y = gr.Slider(minimum=0, maximum=2048, step=64, label="Resize height to", value=0, elem_id="txt2img_hr_resize_y")
 
                                 with FormRow(elem_id="txt2img_hires_fix_row_cfg", variant="compact"):
                                     hr_distilled_cfg = gr.Slider(minimum=0.0, maximum=30.0, step=0.1, label="Hires Distilled CFG Scale", value=3.5, elem_id="txt2img_hr_distilled_cfg")
@@ -663,8 +663,10 @@ def create_ui():
                                     with gr.Tab(label="Resize to", id="to", elem_id="img2img_tab_resize_to") as tab_scale_to:
                                         with FormRow():
                                             with gr.Column(elem_id="img2img_column_size", scale=4):
-                                                width = gr.Slider(minimum=64, maximum=2048, step=8, label="Width", value=512, elem_id="img2img_width")
-                                                height = gr.Slider(minimum=64, maximum=2048, step=8, label="Height", value=512, elem_id="img2img_height")
+                                                width = gr.Slider(minimum=64, maximum=2048, step=64, label="Width", value=512, elem_id="img2img_width")
+                                                height = gr.Slider(minimum=64, maximum=2048, step=64, label="Height", value=512, elem_id="img2img_height")
+                                                width.change(lambda x: round(x / 64) * 64, inputs=[width], outputs=[width], queue=False, show_progress=False)
+                                                height.change(lambda x: round(x / 64) * 64, inputs=[height], outputs=[height], queue=False, show_progress=False)
                                             with gr.Column(elem_id="img2img_dimensions_row", scale=1, elem_classes="dimensions-tools"):
                                                 res_switch_btn = ToolButton(value=switch_values_symbol, elem_id="img2img_res_switch_btn", tooltip="Switch width/height")
                                                 detect_image_size_btn = ToolButton(value=detect_image_size_symbol, elem_id="img2img_detect_image_size_btn", tooltip="Auto detect size from img2img")

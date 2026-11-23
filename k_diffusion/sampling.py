@@ -76,7 +76,7 @@ class BatchedBrownianTree:
         try:
             assert len(seed) == x.shape[0]
             w0 = w0[0]
-        except TypeError:
+        except (TypeError, AssertionError):
             seed = [seed]
             self.batched = False
         self.trees = [torchsde.BrownianTree(t0, w0, t1, entropy=s, **kwargs) for s in seed]
@@ -87,7 +87,7 @@ class BatchedBrownianTree:
 
     def __call__(self, t0, t1):
         t0, t1, sign = self.sort(t0, t1)
-        w = torch.stack([tree(t0, t1) for tree in self.trees]) * (self.sign * sign)
+        w = torch.stack([tree(t0, t1) for tree in self.trees]) * int(self.sign) * int(sign)
         return w if self.batched else w[0]
 
 
@@ -369,9 +369,9 @@ class PIDStepSizeController:
     """A PID controller for ODE adaptive step size control."""
     def __init__(self, h, pcoeff, icoeff, dcoeff, order=1, accept_safety=0.81, eps=1e-8):
         self.h = h
-        self.b1 = (pcoeff + icoeff + dcoeff) / order
-        self.b2 = -(pcoeff + 2 * dcoeff) / order
-        self.b3 = dcoeff / order
+        self.b1 = (pcoeff + icoeff + dcoeff) / float(order)
+        self.b2 = -(pcoeff + 2 * dcoeff) / float(order)
+        self.b3 = dcoeff / float(order)
         self.accept_safety = accept_safety
         self.eps = eps
         self.errs = []
@@ -501,7 +501,7 @@ class DPMSolver(nn.Module):
         s = t_start
         x_prev = x
         accept = True
-        pid = PIDStepSizeController(h_init, pcoeff, icoeff, dcoeff, 1.5 if eta else order, accept_safety)
+        pid = PIDStepSizeController(h_init, pcoeff, icoeff, dcoeff, float(1.5 if eta else order), accept_safety)
         info = {'steps': 0, 'nfe': 0, 'n_accept': 0, 'n_reject': 0}
 
         while s < t_end - 1e-5 if forward else s > t_end + 1e-5:
@@ -744,6 +744,8 @@ def sample_dpmpp_3m_sde(model, x, sigmas, extra_args=None, callback=None, disabl
             x = torch.exp(-h_eta) * x + (-h_eta).expm1().neg() * denoised
 
             if h_2 is not None:
+                assert denoised_1 is not None
+                assert denoised_2 is not None
                 r0 = h_1 / h
                 r1 = h_2 / h
                 d1_0 = (denoised - denoised_1) / r0
@@ -976,3 +978,283 @@ def sample_deis(model, x, sigmas, extra_args=None, callback=None, disable=None, 
             buffer_model.append(d_cur.detach())
 
     return x_next
+
+
+# ============================================================
+# FLUX / Flow-Matching Native Samplers
+# ============================================================
+# FLUX uses Flow-Matching with prediction_type='const'
+# The model predicts the velocity field v where:
+#   dx/dt = v(x,t)  with t going from 1 -> 0
+#   sigmas go from ~1 -> 0
+#   denoised = x - sigma * pred  (recovers x_0)
+#   d = to_d(x, sigma, denoised) = (x_0 - x) / sigma
+# ============================================================
+
+
+@torch.no_grad()
+def sample_flow_euler(model, x, sigmas, extra_args=None, callback=None, disable=None):
+    """Euler (1st order) sampler for Flow-Matching (FLUX)."""
+    extra_args = {} if extra_args is None else extra_args
+    s_in = x.new_ones([x.shape[0]])
+
+    for i in trange(len(sigmas) - 1, disable=disable):
+        denoised = model(x, sigmas[i] * s_in, **extra_args)
+        if callback is not None:
+            callback({'x': x, 'i': i, 'sigma': sigmas[i], 'sigma_hat': sigmas[i], 'denoised': denoised})
+        d = to_d(x, sigmas[i], denoised)
+        if sigmas[i + 1] == 0:
+            x = denoised
+        else:
+            dt = sigmas[i] - sigmas[i + 1]
+            x = x - d * dt
+    return x
+
+
+@torch.no_grad()
+def sample_flow_heun(model, x, sigmas, extra_args=None, callback=None, disable=None, s_churn=0., s_tmin=0., s_tmax=float('inf'), s_noise=1.):
+    """Heun (2nd order) sampler for Flow-Matching (FLUX)."""
+    extra_args = {} if extra_args is None else extra_args
+    s_in = x.new_ones([x.shape[0]])
+
+    for i in trange(len(sigmas) - 1, disable=disable):
+        gamma = min(s_churn / (len(sigmas) - 1), 2 ** 0.5 - 1) if s_tmin <= sigmas[i] <= s_tmax else 0.
+        eps = torch.randn_like(x) * s_noise
+        sigma_hat = sigmas[i] * (gamma + 1)
+        if gamma > 0:
+            x = x + eps * (sigma_hat ** 2 - sigmas[i] ** 2) ** 0.5
+
+        denoised = model(x, sigma_hat * s_in, **extra_args)
+        d = to_d(x, sigma_hat, denoised)
+        if callback is not None:
+            callback({'x': x, 'i': i, 'sigma': sigmas[i], 'sigma_hat': sigma_hat, 'denoised': denoised})
+
+        dt = sigmas[i + 1] - sigma_hat
+        if sigmas[i + 1] == 0:
+            x = x - d * dt
+        else:
+            x_2 = x - d * dt
+            denoised_2 = model(x_2, sigmas[i + 1] * s_in, **extra_args)
+            d_2 = to_d(x_2, sigmas[i + 1], denoised_2)
+            d_prime = (d + d_2) / 2
+            x = x - d_prime * dt
+    return x
+
+
+@torch.no_grad()
+def sample_flow_rk2(model, x, sigmas, extra_args=None, callback=None, disable=None):
+    """2nd-order Runge-Kutta (midpoint) sampler for Flow-Matching."""
+    extra_args = {} if extra_args is None else extra_args
+    s_in = x.new_ones([x.shape[0]])
+
+    for i in trange(len(sigmas) - 1, disable=disable):
+        denoised = model(x, sigmas[i] * s_in, **extra_args)
+        d = to_d(x, sigmas[i], denoised)
+        if callback is not None:
+            callback({'x': x, 'i': i, 'sigma': sigmas[i], 'sigma_hat': sigmas[i], 'denoised': denoised})
+
+        if sigmas[i + 1] == 0:
+            x = denoised
+        else:
+            dt = sigmas[i] - sigmas[i + 1]
+            sigma_half = (sigmas[i] + sigmas[i + 1]) / 2
+            x_mid = x - d * (dt / 2)
+            denoised_mid = model(x_mid, sigma_half * s_in, **extra_args)
+            d_mid = to_d(x_mid, sigma_half, denoised_mid)
+            x = x - d_mid * dt
+    return x
+
+
+@torch.no_grad()
+def sample_flow_dpm_solver_2(model, x, sigmas, extra_args=None, callback=None, disable=None):
+    """DPM-Solver (2nd order) for Flow-Matching.
+    
+    Uses the log-sigma domain for DPM-Solver's change of variable.
+    """
+    extra_args = {} if extra_args is None else extra_args
+    s_in = x.new_ones([x.shape[0]])
+    sigma_fn = lambda t: t.neg().exp()
+    t_fn = lambda sigma: sigma.log().neg()
+
+    for i in trange(len(sigmas) - 1, disable=disable):
+        denoised = model(x, sigmas[i] * s_in, **extra_args)
+        if callback is not None:
+            callback({'x': x, 'i': i, 'sigma': sigmas[i], 'sigma_hat': sigmas[i], 'denoised': denoised})
+
+        if sigmas[i + 1] == 0:
+            x = denoised
+        else:
+            t, t_next = t_fn(sigmas[i]), t_fn(sigmas[i + 1])
+            h = t_next - t
+
+            s = t + h / 2
+            u = sigma_fn(s) / sigma_fn(t) * x - (-h / 2).expm1() * denoised
+            denoised_u = model(u, sigma_fn(s) * s_in, **extra_args)
+            x = sigma_fn(t_next) / sigma_fn(t) * x - (-h).expm1() * denoised_u
+    return x
+
+
+@torch.no_grad()
+def sample_flow_dpmpp_2m(model, x, sigmas, extra_args=None, callback=None, disable=None):
+    """DPM-Solver++(2M) for Flow-Matching.
+    
+    Second-order method using previous denoised values for extrapolation.
+    """
+    extra_args = {} if extra_args is None else extra_args
+    s_in = x.new_ones([x.shape[0]])
+    sigma_fn = lambda t: t.neg().exp()
+    t_fn = lambda sigma: sigma.log().neg()
+
+    old_denoised = None
+
+    for i in trange(len(sigmas) - 1, disable=disable):
+        denoised = model(x, sigmas[i] * s_in, **extra_args)
+        if callback is not None:
+            callback({'x': x, 'i': i, 'sigma': sigmas[i], 'sigma_hat': sigmas[i], 'denoised': denoised})
+
+        if sigmas[i + 1] == 0:
+            x = denoised
+            old_denoised = denoised
+        else:
+            t, t_next = t_fn(sigmas[i]), t_fn(sigmas[i + 1])
+            h = t_next - t
+
+            if old_denoised is None:
+                x = sigma_fn(t_next) / sigma_fn(t) * x - (-h).expm1() * denoised
+            else:
+                h_last = t - t_fn(sigmas[i - 1])
+                r = h_last / h
+                denoised_d = (1 + 1 / (2 * r)) * denoised - (1 / (2 * r)) * old_denoised
+                x = sigma_fn(t_next) / sigma_fn(t) * x - (-h).expm1() * denoised_d
+            old_denoised = denoised
+    return x
+
+
+@torch.no_grad()
+def sample_flow_dpmpp_2s_ancestral(model, x, sigmas, extra_args=None, callback=None, disable=None, eta=1., s_noise=1., noise_sampler=None):
+    """Ancestral DPM-Solver++(2S) for Flow-Matching.
+    
+    Adds noise for stochastic sampling, useful for variant generation.
+    """
+    extra_args = {} if extra_args is None else extra_args
+    noise_sampler = default_noise_sampler(x) if noise_sampler is None else noise_sampler
+    s_in = x.new_ones([x.shape[0]])
+    sigma_fn = lambda t: t.neg().exp()
+    t_fn = lambda sigma: sigma.log().neg()
+
+    for i in trange(len(sigmas) - 1, disable=disable):
+        denoised = model(x, sigmas[i] * s_in, **extra_args)
+        if sigmas[i + 1] > 0:
+            sigma_down, sigma_up = get_ancestral_step(sigmas[i], sigmas[i + 1], eta=eta)
+            if callback is not None:
+                callback({'x': x, 'i': i, 'sigma': sigmas[i], 'sigma_hat': sigmas[i], 'denoised': denoised})
+            
+            t, t_next = t_fn(sigmas[i]), t_fn(sigma_down)
+            r = 1 / 2
+            h = t_next - t
+            s = t + r * h
+            x_2 = (sigma_fn(s) / sigma_fn(t)) * x - (-h * r).expm1() * denoised
+            denoised_2 = model(x_2, sigma_fn(s) * s_in, **extra_args)
+            x = (sigma_fn(t_next) / sigma_fn(t)) * x - (-h).expm1() * denoised_2
+            x = x + noise_sampler(sigmas[i], sigmas[i + 1]) * s_noise * sigma_up
+        else:
+            if callback is not None:
+                callback({'x': x, 'i': i, 'sigma': sigmas[i], 'sigma_hat': sigmas[i], 'denoised': denoised})
+            x = denoised
+    return x
+
+
+@torch.no_grad()
+def sample_flow_midpoint(model, x, sigmas, extra_args=None, callback=None, disable=None):
+    """Midpoint (2nd order Runge-Kutta) sampler for Flow-Matching.
+    
+    Simpler alternative to Heun, uses half-step evaluation.
+    """
+    extra_args = {} if extra_args is None else extra_args
+    s_in = x.new_ones([x.shape[0]])
+
+    for i in trange(len(sigmas) - 1, disable=disable):
+        denoised = model(x, sigmas[i] * s_in, **extra_args)
+        d = to_d(x, sigmas[i], denoised)
+        if callback is not None:
+            callback({'x': x, 'i': i, 'sigma': sigmas[i], 'sigma_hat': sigmas[i], 'denoised': denoised})
+
+        if sigmas[i + 1] == 0:
+            x = denoised
+        else:
+            dt = sigmas[i] - sigmas[i + 1]
+            x_half = x - d * (dt / 2)
+            sigma_half = sigmas[i] - dt / 2
+            denoised_half = model(x_half, sigma_half * s_in, **extra_args)
+            d_half = to_d(x_half, sigma_half, denoised_half)
+            x = x - d_half * dt
+    return x
+
+
+@torch.no_grad()
+def sample_flow_lm2(model, x, sigmas, extra_args=None, callback=None, disable=None, order=2):
+    """Linear Multistep Method (2nd order) for Flow-Matching.
+    
+    Uses previous derivative information for higher efficiency.
+    Adams-Bashforth 2nd order formulation.
+    """
+    extra_args = {} if extra_args is None else extra_args
+    s_in = x.new_ones([x.shape[0]])
+
+    ds = []
+    for i in trange(len(sigmas) - 1, disable=disable):
+        denoised = model(x, sigmas[i] * s_in, **extra_args)
+        d = to_d(x, sigmas[i], denoised)
+        ds.append(d)
+        if len(ds) > order:
+            ds.pop(0)
+        if callback is not None:
+            callback({'x': x, 'i': i, 'sigma': sigmas[i], 'sigma_hat': sigmas[i], 'denoised': denoised})
+
+        if len(ds) == 1:
+            x = x - d * (sigmas[i] - sigmas[i + 1])
+        elif len(ds) >= 2:
+            h0 = sigmas[i] - sigmas[i + 1]
+            x = x - h0 * (1.5 * ds[-1] - 0.5 * ds[-2])
+    return x
+
+
+@torch.no_grad()
+def sample_flow_deis(model, x, sigmas, extra_args=None, callback=None, disable=None, max_order=3):
+    """DIIS (Direct Inversion in Iterative Subspace) for Flow-Matching.
+    
+    A linear multistep method adapted from dDeis for flow-matching.
+    """
+    extra_args = {} if extra_args is None else extra_args
+    s_in = x.new_ones([x.shape[0]])
+
+    coeff_list = deis.get_deis_coeff_list(sigmas, max_order, deis_mode='tab')
+
+    buffer_model = []
+    for i in trange(len(sigmas) - 1, disable=disable):
+        denoised = model(x, sigmas[i] * s_in, **extra_args)
+        d = to_d(x, sigmas[i], denoised)
+        if callback is not None:
+            callback({'x': x, 'i': i, 'sigma': sigmas[i], 'sigma_hat': sigmas[i], 'denoised': denoised})
+
+        order = min(max_order, i + 1)
+        if sigmas[i + 1] <= 0:
+            order = 1
+
+        if order == 1:
+            x = x - d * (sigmas[i] - sigmas[i + 1])
+        elif order == 2:
+            coeff_cur, coeff_prev1 = coeff_list[i]
+            x = x + coeff_cur * d + coeff_prev1 * buffer_model[-1]
+        elif order == 3:
+            coeff_cur, coeff_prev1, coeff_prev2 = coeff_list[i]
+            x = x + coeff_cur * d + coeff_prev1 * buffer_model[-1] + coeff_prev2 * buffer_model[-2]
+
+        if len(buffer_model) == max_order - 1:
+            for k in range(max_order - 2):
+                buffer_model[k] = buffer_model[k + 1]
+            buffer_model[-1] = d.detach()
+        else:
+            buffer_model.append(d.detach())
+
+    return x
