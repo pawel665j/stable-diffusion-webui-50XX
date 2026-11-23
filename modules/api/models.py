@@ -221,7 +221,7 @@ _options = vars(parser)['_option_string_actions']
 for key in _options:
     if(_options[key].dest != 'help'):
         flag = _options[key]
-        _type = str | None
+        _type: type | None = str | None
         if _options[key].default is not None:
             _type = type(_options[key].default)
         flags.update({flag.dest: (_type, Field(default=flag.default, description=flag.help))})

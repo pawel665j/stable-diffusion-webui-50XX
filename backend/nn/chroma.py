@@ -1,6 +1,7 @@
 # implementation of Chroma for Forge, inspired by https://github.com/lodestone-rock/ComfyUI_FluxMod
 
 from dataclasses import dataclass
+from typing import Any
 
 import math
 import torch
@@ -187,7 +188,7 @@ class IntegratedChromaTransformer2DModel(nn.Module):
             tensor (torch.Tensor): Input tensor with shape [batch_size, vectors, dim].
         """
         batch_size, vectors, dim = tensor.shape
-        block_dict = {}
+        block_dict: dict[str, ModulationOut | list[ModulationOut] | list[torch.Tensor] | None] = {}
         for i in range(single_block_count):
             key = f"single_blocks.{i}.modulation.lin"
             block_dict[key] = None

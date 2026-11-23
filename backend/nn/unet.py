@@ -479,7 +479,7 @@ class ResBlock(TimestepBlock):
 
 
 class IntegratedUNet2DConditionModel(nn.Module, ConfigMixin):
-    config_name = 'config.json'
+    config_name: str = 'config.json'
 
     @register_to_config
     def __init__(self, in_channels, model_channels, out_channels, num_res_blocks, dropout=0, channel_mult=(1, 2, 4, 8),

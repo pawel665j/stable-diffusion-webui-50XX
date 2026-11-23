@@ -18,7 +18,7 @@ from modules.textual_inversion.image_embedding import embedding_to_b64, embeddin
 
 
 TextualInversionTemplate = namedtuple("TextualInversionTemplate", ["name", "path"])
-textual_inversion_templates = {}
+textual_inversion_templates: dict[str, str] = {}
 
 
 def list_textual_inversion_templates():

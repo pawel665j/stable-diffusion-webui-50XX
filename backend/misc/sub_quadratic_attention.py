@@ -15,14 +15,9 @@ from torch import Tensor
 from torch.utils.checkpoint import checkpoint
 import math
 
-try:
-    from typing import Optional, NamedTuple, List, Protocol
-except ImportError:
-    from typing import Optional, NamedTuple, List
-    from typing_extensions import Protocol
+from typing import Optional, NamedTuple, List, Protocol, Any
 
 from torch import Tensor
-from typing import List
 
 from backend import memory_management
 
@@ -43,20 +38,22 @@ class AttnChunk(NamedTuple):
 
 
 class SummarizeChunk(Protocol):
-    @staticmethod
     def __call__(
+            self,
             query: Tensor,
             key_t: Tensor,
             value: Tensor,
+            mask: Optional[Tensor] = ...,
     ) -> AttnChunk: ...
 
 
 class ComputeQueryChunkAttn(Protocol):
-    @staticmethod
     def __call__(
+            self,
             query: Tensor,
             key_t: Tensor,
             value: Tensor,
+            mask: Optional[Tensor] = ...,
     ) -> Tensor: ...
 
 
@@ -113,13 +110,13 @@ def _query_chunk_attention(
     def chunk_scanner(chunk_idx: int, mask) -> AttnChunk:
         key_chunk = dynamic_slice(
             key_t,
-            (0, 0, chunk_idx),
-            (batch_x_heads, k_channels_per_head, kv_chunk_size)
+            [0, 0, chunk_idx],
+            [batch_x_heads, k_channels_per_head, kv_chunk_size]
         )
         value_chunk = dynamic_slice(
             value,
-            (0, chunk_idx, 0),
-            (batch_x_heads, kv_chunk_size, v_channels_per_head)
+            [0, chunk_idx, 0],
+            [batch_x_heads, kv_chunk_size, v_channels_per_head]
         )
         if mask is not None:
             mask = mask[:, :, chunk_idx:chunk_idx + kv_chunk_size]
@@ -235,8 +232,8 @@ def efficient_dot_product_attention(
     def get_query_chunk(chunk_idx: int) -> Tensor:
         return dynamic_slice(
             query,
-            (0, chunk_idx, 0),
-            (batch_x_heads, min(query_chunk_size, q_tokens), q_channels_per_head)
+            [0, chunk_idx, 0],
+            [batch_x_heads, min(query_chunk_size, q_tokens), q_channels_per_head]
         )
 
     def get_mask_chunk(chunk_idx: int) -> Tensor:
@@ -245,19 +242,17 @@ def efficient_dot_product_attention(
         chunk = min(query_chunk_size, q_tokens)
         return mask[:, chunk_idx:chunk_idx + chunk]
 
-    summarize_chunk: SummarizeChunk = partial(_summarize_chunk, scale=scale, upcast_attention=upcast_attention)
-    summarize_chunk: SummarizeChunk = partial(checkpoint, summarize_chunk) if use_checkpoint else summarize_chunk
-    compute_query_chunk_attn: ComputeQueryChunkAttn = partial(
+    summarize_chunk: SummarizeChunk = partial(_summarize_chunk, scale=scale, upcast_attention=upcast_attention)  # type: ignore[assignment]
+    summarize_chunk = partial(checkpoint, summarize_chunk) if use_checkpoint else summarize_chunk  # type: ignore[assignment]
+    compute_query_chunk_attn: ComputeQueryChunkAttn = partial(  # type: ignore[assignment]
         _get_attention_scores_no_kv_chunking,
         scale=scale,
         upcast_attention=upcast_attention
-    ) if k_tokens <= kv_chunk_size else (
+    ) if k_tokens <= kv_chunk_size else partial(  # type: ignore[assignment]
         # fast-path for when there's just 1 key-value chunk per query chunk (this is just sliced attention btw)
-        partial(
-            _query_chunk_attention,
-            kv_chunk_size=kv_chunk_size,
-            summarize_chunk=summarize_chunk,
-        )
+        _query_chunk_attention,
+        kv_chunk_size=kv_chunk_size,
+        summarize_chunk=summarize_chunk,
     )
 
     if q_tokens <= query_chunk_size:

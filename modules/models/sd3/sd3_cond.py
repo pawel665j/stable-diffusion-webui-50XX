@@ -53,7 +53,8 @@ T5_CONFIG = {
 }
 
 
-class Sd3ClipLG(sd_hijack_clip.TextConditionalModel):
+class Sd3ClipLG:  # type: ignore[misc]
+    # TODO: restore inheritance from sd_hijack_clip.TextConditionalModel when class is uncommented
     def __init__(self, clip_l, clip_g):
         super().__init__()
 

@@ -10,7 +10,7 @@ from modules.shared import opts
 
 
 PromptChunkFix = namedtuple('PromptChunkFix', ['offset', 'embedding'])
-last_extra_generation_params = {}
+last_extra_generation_params: dict[str, object] = {}
 
 
 class PromptChunk:

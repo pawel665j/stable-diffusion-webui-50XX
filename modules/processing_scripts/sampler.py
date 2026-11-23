@@ -6,7 +6,7 @@ from modules.ui_components import FormRow, FormGroup
 
 
 class ScriptSampler(scripts.ScriptBuiltinUI):
-    section = "sampler"
+    section: str | None = "sampler"
 
     def __init__(self):
         self.steps = None

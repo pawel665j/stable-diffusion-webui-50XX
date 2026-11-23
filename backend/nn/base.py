@@ -18,7 +18,7 @@ class ObjectDict:
 
 
 class Dummy(nn.Module, ConfigMixin):
-    config_name = 'config.json'
+    config_name: str = 'config.json'
 
     @register_to_config
     def __init__(self):

@@ -7,7 +7,7 @@ from modules.ui_components import InputAccordion
 
 
 class ScriptRefiner(scripts.ScriptBuiltinUI):
-    section = "accordions"
+    section: str | None = "accordions"
     create_group = False
 
     def __init__(self):

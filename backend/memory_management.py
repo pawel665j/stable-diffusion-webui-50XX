@@ -5,6 +5,7 @@ import time
 import psutil
 import torch
 import platform
+from typing import Any
 
 from enum import Enum
 from backend import stream, utils
@@ -264,7 +265,7 @@ if 'rtx' in torch_device_name.lower():
         print('Hint: your device supports --cuda-malloc for potential speed improvements.')
 
 
-current_loaded_models = []
+current_loaded_models: list[Any] = []
 
 
 def state_dict_size(sd, exclude_device=None):

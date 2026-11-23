@@ -7,8 +7,7 @@ import contextlib
 from backend import stream, memory_management, utils
 from backend.patcher.lora import merge_lora_to_weight
 
-
-stash = {}
+stash: dict[str, dict[int, torch.Tensor]] = {}
 
 
 def get_weight_and_bias(layer, weight_args=None, bias_args=None, weight_fn=None, bias_fn=None):
@@ -536,7 +535,7 @@ class DynamicSwapInstaller:
                 _buffers = self.__dict__['_buffers']
                 if name in _buffers:
                     return _buffers[name].to(target_device)
-            return super(original_class, self).__getattr__(name)
+            return super().__getattr__(name)  # type: ignore[misc]
 
         module.__class__ = type('DynamicSwap_' + original_class.__name__, (original_class,), {
             '__getattr__': hacked_get_attr,

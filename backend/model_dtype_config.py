@@ -2,9 +2,10 @@ import os
 import json
 import re
 import torch
+from typing import Dict, Optional
 
-_model_dtype_config = None
-_model_dtype_cache = {}
+_model_dtype_config: Optional[Dict[str, str]] = None
+_model_dtype_cache: Dict[str, str] = {}
 
 
 DEFAULT_DTYPE_MAP = {
@@ -67,6 +68,9 @@ def detect_model_type_from_filename(filename):
 def detect_dtype_from_filename(filename):
     basename = os.path.basename(filename).lower()
     
+    if basename.endswith('.gguf'):
+        return 'gguf'
+    
     if 'nf4' in basename:
         return 'nf4'
     
@@ -106,6 +110,7 @@ def get_dtype_for_model(filename):
         'fp8-e5m2': torch.float8_e5m2,
         'nf4': 'nf4',
         'fp4': 'fp4',
+        'gguf': 'gguf',
     }
     
     result = dtype_map.get(dtype, torch.float16)

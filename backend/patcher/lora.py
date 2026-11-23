@@ -1,4 +1,5 @@
 import torch
+from typing import Dict, List, Callable, Any
 
 import packages_3rdparty.webui_lora_collection.lora as lora_utils_webui
 import packages_3rdparty.comfyui_lora_collection.lora as lora_utils_comfyui
@@ -6,7 +7,7 @@ import packages_3rdparty.comfyui_lora_collection.lora as lora_utils_comfyui
 from backend import memory_management, utils
 
 
-extra_weight_calculators = {}
+extra_weight_calculators: Dict[type, Callable[[torch.Tensor], torch.Tensor]] = {}
 lora_collection_priority = [lora_utils_webui, lora_utils_comfyui]
 
 

@@ -272,7 +272,7 @@ class Decoder(nn.Module):
 
 
 class IntegratedAutoencoderKL(nn.Module, ConfigMixin):
-    config_name = 'config.json'
+    config_name: str = 'config.json'
 
     @register_to_config
     def __init__(self, in_channels=3, out_channels=3, down_block_types=("DownEncoderBlock2D",), up_block_types=("UpDecoderBlock2D",), block_out_channels=(64,), layers_per_block=1, act_fn="silu", latent_channels=4, norm_num_groups=32, sample_size=32, scaling_factor=0.18215, shift_factor=0.0, latents_mean=None, latents_std=None, force_upcast=True, use_quant_conv=True, use_post_quant_conv=True):

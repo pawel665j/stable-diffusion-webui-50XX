@@ -7,8 +7,8 @@ from modules import errors, shared
 
 @dataclasses.dataclass
 class PostprocessedImageSharedInfo:
-    target_width: int = None
-    target_height: int = None
+    target_width: int | None = None
+    target_height: int | None = None
 
 
 class PostprocessedImage:

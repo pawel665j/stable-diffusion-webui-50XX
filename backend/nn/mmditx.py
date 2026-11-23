@@ -74,6 +74,9 @@ class PatchEmbed(nn.Module):
         super().__init__()
 
         self.patch_size = (patch_size, patch_size)
+        self.img_size: tuple[int, int] | None
+        self.grid_size: tuple[int, ...] | None
+        self.num_patches: int | None
         if img_size is not None:
             self.img_size = (img_size, img_size)
             self.grid_size = tuple(
@@ -785,8 +788,8 @@ class MMDiTX(nn.Module):
         self.patch_size = patch_size
         self.pos_embed_scaling_factor = pos_embed_scaling_factor
         self.pos_embed_offset = pos_embed_offset
-        self.pos_embed_max_size = int(pos_embed_max_size)
-        self.x_block_self_attn_layers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] if self.pos_embed_max_size == 384 else x_block_self_attn_layers
+        self.pos_embed_max_size: int | None = int(pos_embed_max_size) if pos_embed_max_size is not None else None
+        self.x_block_self_attn_layers: list[int] | None = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] if self.pos_embed_max_size == 384 else x_block_self_attn_layers
 
         # apply magic --> this defines a head_size of 64
         depth = int(depth)
@@ -807,12 +810,12 @@ class MMDiTX(nn.Module):
         )
         self.t_embedder = TimestepEmbedder(hidden_size, dtype=dtype, device=device)
 
-        adm_in_channels = int(adm_in_channels)  # 2048
+        adm_in_channels_int: int | None = int(adm_in_channels) if adm_in_channels is not None else None  # 2048
 
-        if adm_in_channels is not None:
-            assert isinstance(adm_in_channels, int)
+        if adm_in_channels_int is not None:
+            assert isinstance(adm_in_channels_int, int)
             self.y_embedder = VectorEmbedder(
-                adm_in_channels, hidden_size, dtype=dtype, device=device
+                adm_in_channels_int, hidden_size, dtype=dtype, device=device
             )
 
         self.context_embedder = nn.Identity()
@@ -852,7 +855,7 @@ class MMDiTX(nn.Module):
                     scale_mod_only=scale_mod_only,
                     swiglu=swiglu,
                     qk_norm=qk_norm,
-                    x_block_self_attn=(i in self.x_block_self_attn_layers),
+                    x_block_self_attn=(self.x_block_self_attn_layers is not None and i in self.x_block_self_attn_layers),
                     dtype=dtype,
                     device=device,
                 )
@@ -910,7 +913,7 @@ class MMDiTX(nn.Module):
         x: torch.Tensor,
         c_mod: torch.Tensor,
         context: Optional[torch.Tensor] = None,
-        skip_layers: Optional[List] = [],
+        skip_layers: list[int] | None = None,
         controlnet_hidden_states: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         if self.register_length > 0:
@@ -925,7 +928,7 @@ class MMDiTX(nn.Module):
         # context is B, L', D
         # x is B, L, D
         for i, block in enumerate(self.joint_blocks):
-            if i in skip_layers:
+            if skip_layers is not None and i in skip_layers:
                 continue
             context, x = block(context, x, c=c_mod)
             if controlnet_hidden_states is not None:

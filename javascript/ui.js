@@ -440,3 +440,78 @@ function onEdit(editId, elem, afterMs, func) {
 
     return edited;
 }
+
+// Round dimensions sliders to multiples of 64
+function roundTo64(val) {
+    return Math.round(val / 64) * 64;
+}
+
+function setupDimensionSlider(elemId) {
+    var el = document.getElementById(elemId);
+    if (!el) return;
+    
+    var slider = el.querySelector('input[type="range"]');
+    var numberInput = el.querySelector('input[type="number"]');
+    
+    if (slider) {
+        slider.step = 64;
+        slider.addEventListener('input', function() {
+            var val = parseInt(this.value) || 0;
+            val = roundTo64(val);
+            this.value = val;
+            this.dispatchEvent(new Event('change', {bubbles: true}));
+        });
+    }
+    
+    if (numberInput) {
+        numberInput.step = 64;
+        numberInput.addEventListener('keydown', function(e) {
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                e.preventDefault();
+                var val = parseInt(this.value) || 0;
+                if (e.key === 'ArrowUp') {
+                    val += 64;
+                } else {
+                    val -= 64;
+                }
+                this.value = val;
+                this.dispatchEvent(new Event('change', {bubbles: true}));
+            }
+        });
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    setupDimensionSlider('txt2img_width');
+    setupDimensionSlider('txt2img_height');
+    setupDimensionSlider('img2img_width');
+    setupDimensionSlider('img2img_height');
+});
+
+onAfterUiUpdate(function() {
+    var ids = ['txt2img_width', 'txt2img_height', 'img2img_width', 'img2img_height'];
+    ids.forEach(function(elemId) {
+        var el = document.getElementById(elemId);
+        if (!el) return;
+        var numberInput = el.querySelector('input[type="number"]');
+        if (numberInput && numberInput.step === '64') {
+            return;
+        }
+        if (numberInput) {
+            numberInput.step = 64;
+            numberInput.addEventListener('keydown', function(e) {
+                if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    var val = parseInt(this.value) || 0;
+                    if (e.key === 'ArrowUp') {
+                        val += 64;
+                    } else {
+                        val -= 64;
+                    }
+                    this.value = val;
+                    this.dispatchEvent(new Event('change', {bubbles: true}));
+                }
+            });
+        }
+    });
+});

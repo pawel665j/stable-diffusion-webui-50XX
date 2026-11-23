@@ -22,6 +22,7 @@ from modules.api import models
 from modules.shared import opts
 from modules.processing import StableDiffusionProcessingTxt2Img, StableDiffusionProcessingImg2Img, process_images, process_extra_images
 import modules.textual_inversion.textual_inversion
+from modules import hypernetworks
 from modules.shared import cmd_opts
 
 from PIL import PngImagePlugin
@@ -248,8 +249,8 @@ class Api:
             self.add_api_route("/sdapi/v1/server-restart", self.restart_webui, methods=["POST"])
             self.add_api_route("/sdapi/v1/server-stop", self.stop_webui, methods=["POST"])
 
-        self.default_script_arg_txt2img = []
-        self.default_script_arg_img2img = []
+        self.default_script_arg_txt2img: list[Any] = []
+        self.default_script_arg_img2img: list[Any] = []
 
         txt2img_script_runner = scripts.scripts_txt2img
         img2img_script_runner = scripts.scripts_img2img
@@ -447,7 +448,7 @@ class Api:
 
         script_runner = scripts.scripts_txt2img
 
-        infotext_script_args = {}
+        infotext_script_args: dict[str, str] = {}
         self.apply_infotext(txt2imgreq, "txt2img", script_runner=script_runner, mentioned_script_args=infotext_script_args)
 
         selectable_scripts, selectable_script_idx = self.get_selectable_script(txt2imgreq.script_name, script_runner)
@@ -516,7 +517,7 @@ class Api:
 
         script_runner = scripts.scripts_img2img
 
-        infotext_script_args = {}
+        infotext_script_args: dict[str, str] = {}
         self.apply_infotext(img2imgreq, "img2img", script_runner=script_runner, mentioned_script_args=infotext_script_args)
 
         selectable_scripts, selectable_script_idx = self.get_selectable_script(img2imgreq.script_name, script_runner)
@@ -628,7 +629,7 @@ class Api:
         if shared.state.sampling_steps > 0:
             progress += 1 / shared.state.job_count * shared.state.sampling_step / shared.state.sampling_steps
 
-        time_since_start = time.time() - shared.state.time_start
+        time_since_start = time.time() - (shared.state.time_start if shared.state.time_start is not None else 0)
         eta = (time_since_start/progress)
         eta_relative = eta-time_since_start
 
@@ -793,7 +794,7 @@ class Api:
     def create_hypernetwork(self, args: dict):
         try:
             shared.state.begin(job="create_hypernetwork")
-            filename = create_hypernetwork(**args) # create empty embedding
+            filename = hypernetworks.ui.create_hypernetwork(**args) # create empty embedding
             return models.CreateResponse(info=f"create hypernetwork filename: {filename}")
         except AssertionError as e:
             return models.TrainResponse(info=f"create hypernetwork error: {e}")
