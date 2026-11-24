@@ -56,3 +56,4 @@ trace.json
 /test/results.xml
 coverage.xml
 **/tests/**/expectations
+.gigacode/
