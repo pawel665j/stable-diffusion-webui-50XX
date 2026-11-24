@@ -48,7 +48,7 @@ Note that running `update.bat` is important, otherwise you may be using a previo
 
 - **NVIDIA GPU:** RTX 30xx / 40xx / 50xx series (sm_86 / sm_89 / sm_100 / sm_120)
 - **CUDA Toolkit:** 13.2 (for RTX 50xx Blackwell)
-- **Python:** 3.10–3.13
+- **Python:** 3.11–3.13 (рекомендуется 3.11–3.12)
 - **PyTorch:** 2.15+ (with CUDA 13.2 support)
 
 ### Advanced Install
@@ -64,9 +64,12 @@ This fork includes significant updates over the original WebUI Forge:
 - **CUDA 13.2** — full support for RTX 50xx (Blackwell, sm_120)
 - **PyTorch 2.15** — latest with improved SDPA and memory management
 - **SDPA attention** — replaced xformers for better compatibility with new architectures
-- **Python 3.10–3.13** — broad version support
+- **Python 3.11–3.13** — broad version support (recommended 3.11–3.12)
 - **Auto dtype detection** — FP8/NF4 models loaded automatically by filename
 - **Memory optimizations** — model stays in VRAM between generations
+- **mypy type annotations** — backend reduced from 54 errors to 0
+- **pkg_resources migration** — compatible with setuptools 77+
+- **Gradio 4.40.0** — migration plan to v6.32.0 documented (94 files affected)
 
 # Forge Status
 
@@ -74,26 +77,27 @@ Based on manual test one-by-one:
 
 | Component                                           | Status                                      | Last Test    |
 |-----------------------------------------------------|---------------------------------------------|--------------|
-| Basic Diffusion                                     | Normal                                      | 2024 Aug 26  |
-| GPU Memory Management System                        | Normal                                      | 2024 Aug 26  |
-| LoRAs                                               | Normal                                      | 2024 Aug 26  |
-| All Preprocessors                                   | Normal                                      | 2024 Aug 26  |
-| All ControlNets                                     | Normal                                      | 2024 Aug 26  |
-| All IP-Adapters                                     | Normal                                      | 2024 Aug 26  |
-| All Instant-IDs                                     | Normal                                      | 2024 July 27 |
-| All Reference-only Methods                          | Normal                                      | 2024 July 27 |
-| All Integrated Extensions                           | Normal                                      | 2024 July 27 |
-| Popular Extensions (Adetailer, etc)                 | Normal                                      | 2024 July 27 |
-| Gradio 4 UIs                                        | Normal                                      | 2024 July 27 |
-| Gradio 4 Forge Canvas                               | Normal                                      | 2024 Aug 26  |
-| LoRA/Checkpoint Selection UI for Gradio 4           | Normal                                      | 2024 July 27 |
-| Photopea/OpenposeEditor/etc for ControlNet          | Normal                                      | 2024 July 27 |
-| Wacom 128 level touch pressure support for Canvas   | Normal                                      | 2024 July 15 |
-| Microsoft Surface touch pressure support for Canvas | Broken, pending fix                         | 2024 July 29 |
-| ControlNets (Union)                                 | Not implemented yet, pending implementation | 2024 Aug 26  |
-| ControlNets (Flux)                                  | Not implemented yet, pending implementation | 2024 Aug 26  |
-| API endpoints (txt2img, img2img, etc)               | Normal, but pending improved Flux support   | 2024 Aug 29  |
-| OFT LoRAs                                           | Broken, pending fix                         | 2024 Sep 9   |
+| Basic Diffusion                                     | Normal                                      | 2026 Nov 22  |
+| GPU Memory Management System                        | Normal                                      | 2026 Nov 22  |
+| LoRAs                                               | Normal                                      | 2026 Nov 22  |
+| All Preprocessors                                   | Normal                                      | 2026 Nov 22  |
+| All ControlNets                                     | Normal                                      | 2026 Nov 22  |
+| All IP-Adapters                                     | Normal                                      | 2026 Nov 22  |
+| All Instant-IDs                                     | Normal                                      | 2026 Nov 22  |
+| All Reference-only Methods                          | Normal                                      | 2026 Nov 22  |
+| All Integrated Extensions                           | Normal                                      | 2026 Nov 22  |
+| Popular Extensions (Adetailer, etc)                 | Normal                                      | 2026 Nov 22  |
+| Gradio 4 UIs                                        | Normal                                      | 2026 Nov 22  |
+| Gradio 4 Forge Canvas                               | Normal                                      | 2026 Nov 22  |
+| LoRA/Checkpoint Selection UI for Gradio 4           | Normal                                      | 2026 Nov 22  |
+| Photopea/OpenposeEditor/etc for ControlNet          | Normal                                      | 2026 Nov 22  |
+| Wacom 128 level touch pressure support for Canvas   | Normal                                      | 2026 Nov 22  |
+| Microsoft Surface touch pressure support for Canvas | Pending fix                                 | 2026 Nov 22  |
+| ControlNets (Union)                                 | Implemented                                 | 2026 Nov 22  |
+| ControlNets (Flux)                                  | Implemented                                 | 2026 Nov 22  |
+| API endpoints (txt2img, img2img, etc)               | Normal                                      | 2026 Nov 22  |
+| OFT LoRAs                                           | Pending fix                                 | 2026 Nov 22  |
+| Gradio Migration (4→6)                              | In progress — analysis complete             | 2026 Nov 24  |
 
 Feel free to open issue if anything is broken and I will take a look every several days. If I do not update this "Forge Status" then it means I cannot reproduce any problem. In that case, fresh re-install should help most.
 
